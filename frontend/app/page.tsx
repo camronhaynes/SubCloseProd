@@ -18,6 +18,7 @@ interface CalculationResult {
   calculation_date: string
   total_late_interest_collected: string
   total_late_interest_allocated: string
+  total_mgmt_fee_allocation: string
   new_lps: any[]
   existing_lps: any[]
   summary_by_close: any[]
@@ -53,7 +54,9 @@ export default function Home() {
   const [primeRate, setPrimeRate] = useState('7.25')
   const [endDate, setEndDate] = useState('issue_date')
   const [catchUpDueDate, setCatchUpDueDate] = useState('')
-  const [allocatedToAll, setAllocatedToAll] = useState(true)
+  const [mgmtFeeEnabled, setMgmtFeeEnabled] = useState(false)
+  const [mgmtFeeRate, setMgmtFeeRate] = useState('1.0')
+  const [mgmtFeeStartDate, setMgmtFeeStartDate] = useState('')
   const [calcRounding, setCalcRounding] = useState('2')
   const [sumRounding, setSumRounding] = useState('2')
   const [closesToDate, setClosesToDate] = useState('1')
@@ -108,6 +111,7 @@ export default function Home() {
     ])
 
     // Sample partners - Close 1, 2, and 3 to showcase cascading allocations
+    // NOTE: ABC Partners appears in BOTH Close 1 and Close 2 (commitment increase)
     setPartners([
       // Close 1 - Founding investors (receive allocations from Close 2 and 3)
       { name: 'ABC Partners', commitment: '5m', issue_date: '1/1/22', close: '1' },
@@ -115,6 +119,8 @@ export default function Home() {
       { name: 'Venture Fund LLC', commitment: '2m', issue_date: '1/1/22', close: '1' },
 
       // Close 2 - Second close investors (pay interest to Close 1, receive from Close 3)
+      // ABC Partners increases commitment (self-allocates interest)
+      { name: 'ABC Partners', commitment: '2m', issue_date: '7/1/23', close: '2' },
       { name: 'Growth Equity Fund', commitment: '2m', issue_date: '7/1/23', close: '2' },
       { name: 'Strategic Partners LP', commitment: '1.5m', issue_date: '7/1/23', close: '2' },
 
@@ -125,6 +131,33 @@ export default function Home() {
 
     // Set to close 2 as existing, so Close 3 pays interest to both 1 and 2
     setClosesToDate('2')
+  }
+
+  const fillIncreasedCommitmentSampleData = () => {
+    // Sample capital calls
+    setCapitalCalls([
+      { date: '1/15/22', percentage: '10' },
+      { date: '6/15/22', percentage: '20' },
+      { date: '12/15/22', percentage: '15' },
+    ])
+
+    // EDGE CASE: LP increases commitment and allocates to themselves
+    // Founder LP commits in Close 1, then increases in Close 2
+    // Close 2 LPs pay interest to Close 1 (including to themselves!)
+    setPartners([
+      // Close 1 - Initial commitment
+      { name: 'Founder LP (Initial)', commitment: '10m', issue_date: '1/1/22', close: '1' },
+
+      // Close 2 - Same LP increases commitment + other new investors
+      // Founder LP PAYS late interest on their increase AND RECEIVES pro-rata allocation
+      { name: 'Founder LP (Increase)', commitment: '5m', issue_date: '1/1/24', close: '2' },
+      { name: 'New Investor A', commitment: '3m', issue_date: '1/1/24', close: '2' },
+      { name: 'New Investor B', commitment: '2m', issue_date: '1/1/24', close: '2' },
+    ])
+
+    // Set to close 1 as existing
+    // Close 2 investors pay interest to Close 1 (including Founder LP to themselves)
+    setClosesToDate('1')
   }
 
   const addPartner = () => {
@@ -253,8 +286,9 @@ export default function Home() {
         endDateCalculation: endDate === 'issue_date'
           ? EndDateCalculation.ISSUE_DATE
           : EndDateCalculation.DUE_DATE,
-        mgmtFeeAllocatedInterest: false,
-        allocatedToAllExistingLps: allocatedToAll,
+        mgmtFeeAllocatedInterest: mgmtFeeEnabled,
+        mgmtFeeRate: mgmtFeeEnabled ? parseFloat(mgmtFeeRate) : undefined,
+        mgmtFeeStartDate: mgmtFeeEnabled && mgmtFeeStartDate ? parseFlexibleDate(mgmtFeeStartDate) : undefined,
         calcRounding: parseInt(calcRounding),
         sumRounding: parseInt(sumRounding),
         primeRateHistory: [{
@@ -278,6 +312,7 @@ export default function Home() {
         calculation_date: output.calculationDate,
         total_late_interest_collected: output.totalLateInterestCollected,
         total_late_interest_allocated: output.totalLateInterestAllocated,
+        total_mgmt_fee_allocation: output.totalMgmtFeeAllocation,
         new_lps: output.newLps,
         existing_lps: output.existingLps,
         summary_by_close: output.summaryByClose,
@@ -450,16 +485,42 @@ export default function Home() {
                         )}
 
                         <div>
-                          <label className="flex items-center space-x-2">
+                          <label className="flex items-center space-x-2 mb-2">
                             <input
                               type="checkbox"
-                              checked={allocatedToAll}
-                              onChange={(e) => setAllocatedToAll(e.target.checked)}
+                              checked={mgmtFeeEnabled}
+                              onChange={(e) => setMgmtFeeEnabled(e.target.checked)}
                               className="rounded border-gray-300"
                             />
-                            <span className="text-xs text-gray-700">Allocated to all Existing LPs</span>
+                            <span className="text-xs font-medium text-gray-700">Management Fee Allocation</span>
                           </label>
                         </div>
+
+                        {mgmtFeeEnabled && (
+                          <div className="ml-4 pl-4 border-l-2 border-blue-300 space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Annual Mgmt Fee Rate (%)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                value={mgmtFeeRate}
+                                onChange={(e) => setMgmtFeeRate(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-blue-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Mgmt Fee Start Date</label>
+                              <input
+                                type="text"
+                                placeholder="1/1/22"
+                                value={mgmtFeeStartDate}
+                                onChange={(e) => setMgmtFeeStartDate(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-blue-100"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">When management fees start accruing</p>
+                            </div>
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Closes to Date</label>
@@ -515,9 +576,15 @@ export default function Home() {
                           </button>
                           <button
                             onClick={fillMultiCloseSampleData}
-                            className="text-purple-600 hover:text-purple-800 text-xs font-medium underline"
+                            className="text-lime-700 hover:text-lime-900 text-xs font-medium underline"
                           >
                             Fill with multi-close scenario
+                          </button>
+                          <button
+                            onClick={fillIncreasedCommitmentSampleData}
+                            className="text-green-600 hover:text-green-800 text-xs font-medium underline"
+                          >
+                            Fill with increased commitment edge case
                           </button>
                           <button
                             onClick={addCapitalCall}
@@ -670,7 +737,7 @@ export default function Home() {
                 /* Results View */
                 <div className="p-6">
                   <div className="bg-white border border-gray-200 rounded-lg p-6 mb-4">
-                    <div className="grid grid-cols-4 gap-6 mb-6">
+                    <div className="grid grid-cols-5 gap-6 mb-6">
                       <div>
                         <p className="text-xs text-gray-600 mb-1">Fund Name</p>
                         <p className="text-sm font-semibold">{result?.fund_name}</p>
@@ -680,15 +747,21 @@ export default function Home() {
                         <p className="text-sm font-semibold">{result?.calculation_date}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-600 mb-1">Total Collected</p>
-                        <p className="text-lg font-bold text-green-600">
+                        <p className="text-xs text-gray-600 mb-1">Total Late Interest</p>
+                        <p className="text-lg font-bold text-orange-600">
                           {result && formatCurrency(result.total_late_interest_collected)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-600 mb-1">Total Allocated</p>
+                        <p className="text-xs text-gray-600 mb-1">LP Allocation</p>
                         <p className="text-lg font-bold text-blue-600">
                           {result && formatCurrency(result.total_late_interest_allocated)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 mb-1">Mgmt Fee Allocation</p>
+                        <p className="text-lg font-bold text-green-600">
+                          {result && formatCurrency(result.total_mgmt_fee_allocation)}
                         </p>
                       </div>
                     </div>
@@ -712,7 +785,8 @@ export default function Home() {
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Close</th>
                               <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Total Catch-Up</th>
                               <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Total Late Interest</th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-green-50">LP Allocation</th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-blue-50">LP Allocation</th>
+                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-green-50">Mgmt Fee</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -739,13 +813,16 @@ export default function Home() {
                                     <td className="px-4 py-3 text-sm text-orange-600 text-right font-semibold">
                                       {formatCurrency(lp.total_late_interest_due)}
                                     </td>
+                                    <td className="px-4 py-3 text-sm font-semibold text-blue-700 text-right bg-blue-50">
+                                      {formatCurrency(lp.lp_allocation)}
+                                    </td>
                                     <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right bg-green-50">
-                                      {formatCurrency(lp.total_late_interest_due)}
+                                      {formatCurrency(lp.mgmt_fee_allocation)}
                                     </td>
                                   </tr>
                                   {isExpanded && (
                                     <tr key={`${idx}-detail`} className="bg-gray-50">
-                                      <td colSpan={8} className="px-4 py-4">
+                                      <td colSpan={9} className="px-4 py-4">
                                         <div className="bg-white border border-gray-300 rounded-lg p-4">
                                           <h4 className="text-sm font-semibold text-gray-900 mb-3">
                                             Calculation Breakdown for {lp.partner_name}
@@ -810,8 +887,11 @@ export default function Home() {
                               <td className="px-4 py-3 text-sm text-orange-600 text-right font-bold">
                                 {formatCurrency(result.total_late_interest_collected)}
                               </td>
+                              <td className="px-4 py-3 text-sm text-blue-700 text-right font-bold bg-blue-50">
+                                {formatCurrency(result.total_late_interest_allocated)}
+                              </td>
                               <td className="px-4 py-3 text-sm text-green-700 text-right font-bold bg-green-50">
-                                {formatCurrency(result.total_late_interest_collected)}
+                                {formatCurrency(result.total_mgmt_fee_allocation)}
                               </td>
                             </tr>
                           </tfoot>
@@ -852,19 +932,41 @@ export default function Home() {
                           <tbody>
                             {(() => {
                               const totalCommitment = result.existing_lps.reduce((sum: number, lp: any) => sum + parseFloat(lp.commitment), 0)
+                              const allCloses = new Set<string>()
+                              result.existing_lps.forEach((lp: any) => {
+                                Object.keys(lp.allocation_by_close || {}).forEach(close => allCloses.add(close))
+                              })
+                              const sortedCloses = Array.from(allCloses).sort((a, b) => parseInt(a) - parseInt(b))
+
+                              let previousPartnerName = ''
                               return result.existing_lps.map((lp: any, idx: number) => {
                                 const proRata = (parseFloat(lp.commitment) / totalCommitment) * 100
-                                const allCloses = new Set<string>()
-                                result.existing_lps.forEach((lp: any) => {
-                                  Object.keys(lp.allocation_by_close || {}).forEach(close => allCloses.add(close))
-                                })
-                                const sortedCloses = Array.from(allCloses).sort((a, b) => parseInt(a) - parseInt(b))
+                                const isRepeatedPartner = lp.partner_name === previousPartnerName
+                                const currentPartnerName = lp.partner_name
+                                previousPartnerName = lp.partner_name
+
+                                // Check if next row is same partner for visual grouping
+                                const nextLp = result.existing_lps[idx + 1]
+                                const hasNextSamePartner = nextLp && nextLp.partner_name === currentPartnerName
 
                                 return (
-                                  <tr key={idx} className="border-b hover:bg-gray-50">
-                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{lp.partner_name}</td>
+                                  <tr
+                                    key={idx}
+                                    className={`border-b hover:bg-gray-50 ${isRepeatedPartner ? 'bg-blue-50/30' : ''}`}
+                                  >
+                                    <td className={`px-4 py-3 text-sm font-medium text-gray-900 ${isRepeatedPartner ? 'pl-8 text-gray-600' : ''}`}>
+                                      {isRepeatedPartner ? (
+                                        <span className="italic text-xs">↳ {lp.partner_name}</span>
+                                      ) : (
+                                        lp.partner_name
+                                      )}
+                                    </td>
                                     <td className="px-4 py-3 text-sm text-gray-700">{formatCurrency(lp.commitment)}</td>
-                                    <td className="px-4 py-3 text-sm text-gray-600 text-center">{lp.close_number}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600 text-center">
+                                      <span className="inline-block px-2 py-0.5 bg-gray-200 rounded text-xs font-medium">
+                                        {lp.close_number}
+                                      </span>
+                                    </td>
                                     <td className="px-4 py-3 text-sm text-gray-600 text-right">{proRata.toFixed(4)}%</td>
                                     <td className="px-4 py-3 text-sm font-semibold text-blue-700 text-right bg-blue-50">
                                       {formatCurrency(lp.total_allocation)}

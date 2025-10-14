@@ -35,7 +35,8 @@ export interface FundAssumptions {
   lateSpread: number // Percentage added to base rate
   endDateCalculation: EndDateCalculation
   mgmtFeeAllocatedInterest: boolean
-  allocatedToAllExistingLps: boolean
+  mgmtFeeRate?: number // Annual management fee rate (as percentage)
+  mgmtFeeStartDate?: Date // When management fees start accruing
   calcRounding: number
   sumRounding: number
   primeRateHistory: PrimeRateChange[]
@@ -72,6 +73,8 @@ export interface NewLPCalculation {
   closeNumber: number
   totalCatchUp: number
   totalLateInterestDue: number
+  mgmtFeeAllocation: number
+  lpAllocation: number
   breakdownByCapitalCall: LateInterestDetail[]
 }
 
@@ -88,6 +91,7 @@ export interface EngineOutput {
   calculationDate: string
   totalLateInterestCollected: string
   totalLateInterestAllocated: string
+  totalMgmtFeeAllocation: string
   newLps: any[]
   existingLps: any[]
   summaryByClose: any[]
@@ -354,6 +358,27 @@ class LateInterestCalculator {
     totalCatchUp = roundAmount(totalCatchUp, this.assumptions.sumRounding)
     totalLateInterest = roundAmount(totalLateInterest, this.assumptions.sumRounding)
 
+    // Calculate management fee allocation
+    let mgmtFeeAllocation = 0
+    if (
+      this.assumptions.mgmtFeeAllocatedInterest &&
+      this.assumptions.mgmtFeeRate &&
+      this.assumptions.mgmtFeeStartDate &&
+      totalCatchUp > 0
+    ) {
+      // Calculate days from mgmt fee start date to LP issue date
+      const daysForFee = daysBetween(this.assumptions.mgmtFeeStartDate, newLp.issueDate) + 1
+
+      if (daysForFee > 0) {
+        // Mgmt fee = catchUpAmount * (mgmtFeeRate / 100) * (days / 365)
+        mgmtFeeAllocation = totalCatchUp * (this.assumptions.mgmtFeeRate / 100) * (daysForFee / 365)
+        mgmtFeeAllocation = roundAmount(mgmtFeeAllocation, this.assumptions.calcRounding)
+      }
+    }
+
+    // LP allocation is total late interest minus mgmt fee
+    const lpAllocation = roundAmount(totalLateInterest - mgmtFeeAllocation, this.assumptions.sumRounding)
+
     return {
       partnerName: newLp.name,
       issueDate: newLp.issueDate,
@@ -361,6 +386,8 @@ class LateInterestCalculator {
       closeNumber: newLp.closeNumber,
       totalCatchUp,
       totalLateInterestDue: totalLateInterest,
+      mgmtFeeAllocation,
+      lpAllocation,
       breakdownByCapitalCall: breakdown,
     }
   }
@@ -439,12 +466,12 @@ class AllocationCalculator {
       return [[], 0]
     }
 
-    // Total late interest collected
-    const totalLateInterest = newLps
+    // Total amount to allocate to existing LPs (after mgmt fee)
+    const totalToAllocate = newLps
       .filter((lp) => lp.closeNumber === admittingCloseNumber)
-      .reduce((sum, lp) => sum + lp.totalLateInterestDue, 0)
+      .reduce((sum, lp) => sum + lp.lpAllocation, 0)
 
-    if (totalLateInterest === 0) {
+    if (totalToAllocate === 0) {
       return [[], 0]
     }
 
@@ -464,7 +491,7 @@ class AllocationCalculator {
 
     for (const partner of existingPartners) {
       const proRataPercentage = partner.commitment / totalExistingCommitment
-      const allocationAmount = totalLateInterest * proRataPercentage
+      const allocationAmount = totalToAllocate * proRataPercentage
       const roundedAllocation = roundAmount(
         allocationAmount,
         this.assumptions.calcRounding
@@ -491,15 +518,17 @@ class AllocationCalculator {
   aggregateAllocationsAcrossCloses(
     allocationsByClose: Record<number, ExistingLPAllocation[]>
   ): ExistingLPAllocation[] {
+    // Use composite key (partnerName + closeNumber) to keep separate rows
     const partnerAllocations: Record<string, ExistingLPAllocation> = {}
 
     for (const [closeNum, allocations] of Object.entries(allocationsByClose)) {
       for (const allocation of allocations) {
-        const partnerName = allocation.partnerName
+        // Create unique key for partner + their close number
+        const compositeKey = `${allocation.partnerName}_${allocation.closeNumber}`
 
-        if (!partnerAllocations[partnerName]) {
-          partnerAllocations[partnerName] = {
-            partnerName,
+        if (!partnerAllocations[compositeKey]) {
+          partnerAllocations[compositeKey] = {
+            partnerName: allocation.partnerName,
             commitment: allocation.commitment,
             closeNumber: allocation.closeNumber,
             totalAllocation: 0,
@@ -507,7 +536,7 @@ class AllocationCalculator {
           }
         }
 
-        const partnerAlloc = partnerAllocations[partnerName]
+        const partnerAlloc = partnerAllocations[compositeKey]
         partnerAlloc.totalAllocation += allocation.totalAllocation
         partnerAlloc.allocationByAdmittingClose[Number(closeNum)] =
           allocation.totalAllocation
@@ -522,7 +551,13 @@ class AllocationCalculator {
       )
     }
 
-    return Object.values(partnerAllocations)
+    // Sort by partner name, then by close number
+    return Object.values(partnerAllocations).sort((a, b) => {
+      if (a.partnerName !== b.partnerName) {
+        return a.partnerName.localeCompare(b.partnerName)
+      }
+      return a.closeNumber - b.closeNumber
+    })
   }
 }
 
@@ -567,6 +602,7 @@ export class LateInterestEngine {
     const allAllocationsByClose: Record<number, ExistingLPAllocation[]> = {}
     let grandTotalCollected = 0
     let grandTotalAllocated = 0
+    let grandTotalMgmtFee = 0
     const closeSummaries: any[] = []
 
     // Process each close
@@ -577,6 +613,7 @@ export class LateInterestEngine {
       // Calculate late interest for new LPs
       const newLpCalcs: NewLPCalculation[] = []
       let totalCollected = 0
+      let totalMgmtFee = 0
 
       for (const newLp of newLpsAtClose) {
         const calc = this.lateCalc.calculateLateInterestForNewLP(
@@ -586,6 +623,7 @@ export class LateInterestEngine {
         )
         newLpCalcs.push(calc)
         totalCollected += calc.totalLateInterestDue
+        totalMgmtFee += calc.mgmtFeeAllocation
 
         allNewLpResults.push({
           partner_name: calc.partnerName,
@@ -594,6 +632,8 @@ export class LateInterestEngine {
           issue_date: calc.issueDate.toISOString().split('T')[0],
           total_catch_up: calc.totalCatchUp.toString(),
           total_late_interest_due: calc.totalLateInterestDue.toString(),
+          mgmt_fee_allocation: calc.mgmtFeeAllocation.toString(),
+          lp_allocation: calc.lpAllocation.toString(),
           breakdown: calc.breakdownByCapitalCall.map((d) => ({
             call_number: d.callNumber,
             due_date: d.dueDate.toISOString().split('T')[0],
@@ -607,6 +647,7 @@ export class LateInterestEngine {
       }
 
       grandTotalCollected += totalCollected
+      grandTotalMgmtFee += totalMgmtFee
 
       // Calculate allocations
       let allocations: ExistingLPAllocation[] = []
@@ -656,6 +697,7 @@ export class LateInterestEngine {
       calculationDate: new Date().toISOString().split('T')[0],
       totalLateInterestCollected: grandTotalCollected.toString(),
       totalLateInterestAllocated: grandTotalAllocated.toString(),
+      totalMgmtFeeAllocation: grandTotalMgmtFee.toString(),
       newLps: allNewLpResults,
       existingLps: existingLpsOutput,
       summaryByClose: closeSummaries,
@@ -667,6 +709,8 @@ export class LateInterestEngine {
         calc_rounding: this.assumptions.calcRounding,
         sum_rounding: this.assumptions.sumRounding,
         prime_rate: this.assumptions.primeRateHistory[0]?.rate.toString() || 'N/A',
+        mgmt_fee_enabled: this.assumptions.mgmtFeeAllocatedInterest,
+        mgmt_fee_rate: this.assumptions.mgmtFeeRate?.toString() || 'N/A',
       },
     }
   }
