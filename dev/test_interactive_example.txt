@@ -1,0 +1,67 @@
+EXAMPLE INTERACTIVE SESSION
+============================
+
+This is an example of how to use the interactive mode:
+
+python3 late_interest_engine.py --interactive
+
+Example inputs:
+
+CAPITAL CALLS:
+--------------
+Capital Call #1:
+  Due date: 1/15/22
+  Call percentage: 10
+
+Capital Call #2:
+  Due date: 6/15/22
+  Call percentage: 15
+
+Capital Call #3:
+  Due date: 12/15/22
+  Call percentage: 20
+
+Then type: done
+
+
+PARTNERS:
+---------
+Partner #1 (Existing LP):
+  Partner name: ABC Partners
+  Commitment: 5m
+  Issue date: [Enter for default]
+  Close number: 1
+
+Partner #2 (Existing LP):
+  Partner name: XYZ Capital
+  Commitment: 10m
+  Issue date: [Enter for default]
+  Close number: 1
+
+Partner #3 (New LP at subsequent close):
+  Partner name: New Investor LLC
+  Commitment: 3m
+  Issue date: 7/1/22
+  Close number: 2
+
+Then type: done
+
+The system will:
+1. Calculate late interest from New Investor LLC (who missed calls 1 & 2)
+2. Allocate that late interest pro-rata to existing LPs (ABC Partners & XYZ Capital)
+3. Show detailed breakdown by capital call
+4. Display final summary
+
+NATURAL LANGUAGE EXAMPLES:
+--------------------------
+Commitments can be entered as:
+  - "10m" or "10M" = $10,000,000
+  - "5.5m" = $5,500,000
+  - "500k" = $500,000
+  - "2.5k" = $2,500
+  - "$10,000,000" = $10,000,000
+
+Dates can be entered as:
+  - "1/15/22" or "01/15/2022"
+  - "Jan 15 2022" or "January 15, 2022"
+  - "2022-01-15"

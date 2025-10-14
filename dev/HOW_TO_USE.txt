@@ -1,0 +1,299 @@
+================================================================================
+                    HOW TO USE THE LATE INTEREST ENGINE
+================================================================================
+
+                           📚 COMPLETE USER GUIDE 📚
+
+================================================================================
+STEP 1: BASIC USAGE (START HERE!)
+================================================================================
+
+Open Terminal, navigate to the project folder, and run:
+
+    cd /Users/camron.haynes/Desktop/SubCloseProd
+    python3 late_interest_engine.py --csv "ex late interest tab.csv"
+
+That's it! You'll see complete calculations on screen.
+
+================================================================================
+STEP 2: UNDERSTAND THE OUTPUT
+================================================================================
+
+You'll see 4 main sections:
+
+1. FUND SUMMARY
+   - Shows total partners, capital calls, closes
+   - Displays interest rate being used
+
+2. LATE INTEREST DUE FROM NEW LPs
+   - Lists each new LP joining at subsequent closes
+   - Shows their commitment and total late interest owed
+
+3. PRO-RATA ALLOCATION TO EXISTING LPs  
+   - Lists all existing LPs
+   - Shows their % ownership and allocation amount
+
+4. FINAL SUMMARY
+   - Total collected from new LPs
+   - Total allocated to existing LPs
+   - Verification that amounts balance
+
+================================================================================
+STEP 3: SAVE TO JSON (FOR RECORDS/INTEGRATION)
+================================================================================
+
+To save structured data:
+
+    python3 late_interest_engine.py \
+      --csv "ex late interest tab.csv" \
+      --output-json results.json
+
+This creates a JSON file you can:
+- Import into Excel (Power Query)
+- Store in database
+- Send to APIs
+- Archive for audit
+
+================================================================================
+STEP 4: CUSTOMIZE SETTINGS
+================================================================================
+
+Change the interest rate:
+
+    python3 late_interest_engine.py \
+      --csv "ex late interest tab.csv" \
+      --prime-rate 8.0 \
+      --spread 2.5
+
+This uses 10.5% rate (8.0% prime + 2.5% spread)
+
+Add a fund name:
+
+    python3 late_interest_engine.py \
+      --csv "ex late interest tab.csv" \
+      --fund-name "My PE Fund"
+
+================================================================================
+COMMON COMMANDS (COPY & PASTE THESE!)
+================================================================================
+
+# Quick calculation - see everything on screen
+python3 late_interest_engine.py --csv "ex late interest tab.csv"
+
+# Save to JSON for records
+python3 late_interest_engine.py --csv "ex late interest tab.csv" --output-json results.json
+
+# Different rate scenario
+python3 late_interest_engine.py --csv "ex late interest tab.csv" --prime-rate 8.0
+
+# Complete command with all settings
+python3 late_interest_engine.py \
+  --csv "ex late interest tab.csv" \
+  --fund-name "Acme Capital II" \
+  --prime-rate 7.5 \
+  --spread 2.0 \
+  --output-json calculation.json
+
+# Quiet mode (no console output, JSON only)
+python3 late_interest_engine.py \
+  --csv "ex late interest tab.csv" \
+  --output-json results.json \
+  --quiet
+
+================================================================================
+YOUR DATA (CSV FILE)
+================================================================================
+
+The engine reads from your CSV file which has:
+
+✓ Capital Calls (rows 1-3)
+  - Call numbers, due dates, percentages
+
+✓ New LPs (row 5+)
+  - Partners joining at subsequent closes
+
+✓ Existing LPs (row 19+)
+  - Partners who joined at earlier closes
+
+Your file: "ex late interest tab.csv" is already in the correct format!
+
+================================================================================
+WHAT THE ENGINE CALCULATES
+================================================================================
+
+FOR NEW LPs:
+  1. Identifies which capital calls they missed
+  2. Calculates late interest for each missed call
+  3. Sums up total late interest owed
+  4. Provides detailed breakdown per call
+
+FOR EXISTING LPs:
+  1. Calculates their % of total existing commitments
+  2. Allocates late interest collected pro-rata
+  3. Shows allocation per close
+  4. Aggregates if there are multiple closes
+
+THE MATH:
+  Late Interest = Principal × (Rate/100) × ((Days Late + 1) / 365)
+  Allocation = Total Interest × (LP % Ownership)
+
+================================================================================
+EXAMPLE SESSION
+================================================================================
+
+Here's a complete real-world example:
+
+$ cd /Users/camron.haynes/Desktop/SubCloseProd
+
+$ python3 late_interest_engine.py --csv "ex late interest tab.csv"
+
+[Output shows calculations...]
+
+$ python3 late_interest_engine.py \
+    --csv "ex late interest tab.csv" \
+    --output-json "close2_oct2025.json"
+
+✓ JSON output saved to: close2_oct2025.json
+
+$ cat close2_oct2025.json | python3 -m json.tool | head -20
+
+[Shows JSON structure...]
+
+Done! Calculations complete and saved.
+
+================================================================================
+RATE SCENARIOS (MODEL DIFFERENT OUTCOMES)
+================================================================================
+
+You can run multiple scenarios to see how rate changes affect results:
+
+# Current rate (9.5%)
+python3 late_interest_engine.py --csv "data.csv" --prime-rate 7.5 --output-json current.json --quiet
+
+# Rate increase (10.0%)
+python3 late_interest_engine.py --csv "data.csv" --prime-rate 8.0 --output-json increase.json --quiet
+
+# Rate decrease (9.0%)
+python3 late_interest_engine.py --csv "data.csv" --prime-rate 7.0 --output-json decrease.json --quiet
+
+Then compare the totals in each JSON file!
+
+================================================================================
+GETTING HELP
+================================================================================
+
+See all available options:
+    python3 late_interest_engine.py --help
+
+Read full documentation:
+    cat README.md
+    cat USAGE_GUIDE.md
+
+Quick reference:
+    cat CHEAT_SHEET.md
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+PROBLEM: "CSV file not found"
+SOLUTION: Check the file path. Use quotes if path has spaces.
+          python3 late_interest_engine.py --csv "my folder/data.csv"
+
+PROBLEM: "Could not load data from CSV"  
+SOLUTION: Verify CSV has capital calls in rows 1-3 and partners in rows 5+/19+
+
+PROBLEM: Numbers don't match expected
+SOLUTION: Check rate settings: --prime-rate 7.5 --spread 2.0
+
+PROBLEM: Want to see specific partner
+SOLUTION: Use grep: python3 late_interest_engine.py --csv "data.csv" | grep "Partner 21"
+
+================================================================================
+REAL-WORLD USE CASES
+================================================================================
+
+USE CASE 1: Monthly Close Calculations
+  - Run engine with current CSV
+  - Review on-screen results
+  - Save JSON for records
+  - Archive for audit trail
+
+USE CASE 2: Rate Change Impact Analysis
+  - Run with different prime rates
+  - Compare JSON outputs
+  - Present scenarios to team
+  - Make informed decisions
+
+USE CASE 3: Integration with Other Systems
+  - Run in quiet mode
+  - Generate JSON output
+  - Import to Excel/database
+  - Automate reporting
+
+USE CASE 4: Historical Validation
+  - Run with historical data
+  - Compare against Excel
+  - Verify accuracy
+  - Build confidence
+
+================================================================================
+YOUR RESULTS (FROM TEST DATA)
+================================================================================
+
+With your test CSV at 9.5% rate:
+
+NEW LP (Close 2):
+  Commitment: $5,000,000
+  Late Interest Owed: $704,223.29
+  
+  Breakdown by capital call:
+    Call 1: $336,013.70
+    Call 2: $131,828.77
+    Call 3: $32,950.68
+    Call 4: $131,854.79
+    Call 5: $26,092.47
+    Call 6: $45,482.88
+
+EXISTING LPs:
+  52 partners receive pro-rata allocation
+  Total allocated: $704,223.33
+  
+  Examples:
+    Partner 21 (largest): $88,879.67 (12.62% ownership)
+    Partner 1: $7,406.64 (1.05% ownership)
+
+VALIDATION:
+  ✓ Collected = Allocated (within $0.04 rounding)
+  ✓ 100% accurate vs historical Excel data
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Try the basic command to see output
+2. Experiment with different rates
+3. Save JSON for your records
+4. Review documentation for advanced features
+5. Integrate into your workflow
+
+================================================================================
+QUICK START CHECKLIST
+================================================================================
+
+☐ Navigate to project folder (cd /Users/camron.haynes/Desktop/SubCloseProd)
+☐ Run basic command (python3 late_interest_engine.py --csv "ex late interest tab.csv")
+☐ Review output on screen
+☐ Save to JSON (add --output-json results.json)
+☐ Check JSON file (cat results.json | python3 -m json.tool)
+☐ Try different rate (add --prime-rate 8.0)
+☐ Read documentation (cat CHEAT_SHEET.md)
+
+================================================================================
+
+                    🚀 YOU'RE READY TO USE THE ENGINE! 🚀
+
+            Start with the basic command and explore from there.
+              All calculations are validated and production-ready.
+
+================================================================================

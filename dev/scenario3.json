@@ -1,0 +1,561 @@
+{
+  "fund_name": "Fund",
+  "calculation_date": "2025-10-13",
+  "total_late_interest_collected": "667158.91",
+  "total_late_interest_allocated": "667159.00",
+  "new_lps": [
+    {
+      "partner_name": "New LP",
+      "close_number": 2,
+      "commitment": "5000000.00",
+      "issue_date": "2025-10-31",
+      "total_catch_up": "3500000.00",
+      "total_late_interest_due": "667158.91",
+      "breakdown": [
+        {
+          "call_number": 1,
+          "due_date": "2022-04-20",
+          "call_percentage": "20.00",
+          "capital_amount": "1000000.00",
+          "late_interest": "318328.77",
+          "days_late": 1290,
+          "effective_rate": "9.00"
+        },
+        {
+          "call_number": 2,
+          "due_date": "2023-01-23",
+          "call_percentage": "10.00",
+          "capital_amount": "500000.00",
+          "late_interest": "124890.41",
+          "days_late": 1012,
+          "effective_rate": "9.00"
+        },
+        {
+          "call_number": 3,
+          "due_date": "2023-07-11",
+          "call_percentage": "3.00",
+          "capital_amount": "150000.00",
+          "late_interest": "31216.44",
+          "days_late": 843,
+          "effective_rate": "9.00"
+        },
+        {
+          "call_number": 4,
+          "due_date": "2024-03-15",
+          "call_percentage": "17.00",
+          "capital_amount": "850000.00",
+          "late_interest": "124915.07",
+          "days_late": 595,
+          "effective_rate": "9.00"
+        },
+        {
+          "call_number": 5,
+          "due_date": "2024-09-26",
+          "call_percentage": "5.00",
+          "capital_amount": "250000.00",
+          "late_interest": "24719.18",
+          "days_late": 400,
+          "effective_rate": "9.00"
+        },
+        {
+          "call_number": 6,
+          "due_date": "2025-03-13",
+          "call_percentage": "15.00",
+          "capital_amount": "750000.00",
+          "late_interest": "43089.04",
+          "days_late": 232,
+          "effective_rate": "9.00"
+        }
+      ]
+    }
+  ],
+  "existing_lps": [
+    {
+      "partner_name": "Partner 1",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 2",
+      "commitment": "500000",
+      "close_number": 1,
+      "total_allocation": "14033.63",
+      "allocation_by_close": {
+        "2": "14033.63"
+      }
+    },
+    {
+      "partner_name": "Partner 3",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 4",
+      "commitment": "100000",
+      "close_number": 1,
+      "total_allocation": "2806.73",
+      "allocation_by_close": {
+        "2": "2806.73"
+      }
+    },
+    {
+      "partner_name": "Partner 5",
+      "commitment": "100000",
+      "close_number": 1,
+      "total_allocation": "2806.73",
+      "allocation_by_close": {
+        "2": "2806.73"
+      }
+    },
+    {
+      "partner_name": "Partner 6",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 7",
+      "commitment": "100000",
+      "close_number": 1,
+      "total_allocation": "2806.73",
+      "allocation_by_close": {
+        "2": "2806.73"
+      }
+    },
+    {
+      "partner_name": "Partner 8",
+      "commitment": "400000",
+      "close_number": 1,
+      "total_allocation": "11226.91",
+      "allocation_by_close": {
+        "2": "11226.91"
+      }
+    },
+    {
+      "partner_name": "Partner 9",
+      "commitment": "100000",
+      "close_number": 1,
+      "total_allocation": "2806.73",
+      "allocation_by_close": {
+        "2": "2806.73"
+      }
+    },
+    {
+      "partner_name": "Partner 10",
+      "commitment": "50000",
+      "close_number": 1,
+      "total_allocation": "1403.36",
+      "allocation_by_close": {
+        "2": "1403.36"
+      }
+    },
+    {
+      "partner_name": "Partner 11",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 12",
+      "commitment": "500000",
+      "close_number": 1,
+      "total_allocation": "14033.63",
+      "allocation_by_close": {
+        "2": "14033.63"
+      }
+    },
+    {
+      "partner_name": "Partner 13",
+      "commitment": "1000000",
+      "close_number": 1,
+      "total_allocation": "28067.27",
+      "allocation_by_close": {
+        "2": "28067.27"
+      }
+    },
+    {
+      "partner_name": "Partner 15",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 16",
+      "commitment": "150000",
+      "close_number": 1,
+      "total_allocation": "4210.09",
+      "allocation_by_close": {
+        "2": "4210.09"
+      }
+    },
+    {
+      "partner_name": "Partner 17",
+      "commitment": "170226.58",
+      "close_number": 1,
+      "total_allocation": "4777.79",
+      "allocation_by_close": {
+        "2": "4777.79"
+      }
+    },
+    {
+      "partner_name": "Partner 19",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 20",
+      "commitment": "20000",
+      "close_number": 1,
+      "total_allocation": "561.35",
+      "allocation_by_close": {
+        "2": "561.35"
+      }
+    },
+    {
+      "partner_name": "Partner 21",
+      "commitment": "3000000",
+      "close_number": 1,
+      "total_allocation": "84201.80",
+      "allocation_by_close": {
+        "2": "84201.80"
+      }
+    },
+    {
+      "partner_name": "Partner 22",
+      "commitment": "1500000",
+      "close_number": 1,
+      "total_allocation": "42100.90",
+      "allocation_by_close": {
+        "2": "42100.90"
+      }
+    },
+    {
+      "partner_name": "Partner 23",
+      "commitment": "1000000",
+      "close_number": 1,
+      "total_allocation": "28067.27",
+      "allocation_by_close": {
+        "2": "28067.27"
+      }
+    },
+    {
+      "partner_name": "Partner 24",
+      "commitment": "1000000",
+      "close_number": 1,
+      "total_allocation": "28067.27",
+      "allocation_by_close": {
+        "2": "28067.27"
+      }
+    },
+    {
+      "partner_name": "Partner 25",
+      "commitment": "400000",
+      "close_number": 1,
+      "total_allocation": "11226.91",
+      "allocation_by_close": {
+        "2": "11226.91"
+      }
+    },
+    {
+      "partner_name": "Partner 26",
+      "commitment": "500000",
+      "close_number": 1,
+      "total_allocation": "14033.63",
+      "allocation_by_close": {
+        "2": "14033.63"
+      }
+    },
+    {
+      "partner_name": "Partner 27",
+      "commitment": "150000",
+      "close_number": 1,
+      "total_allocation": "4210.09",
+      "allocation_by_close": {
+        "2": "4210.09"
+      }
+    },
+    {
+      "partner_name": "Partner 28",
+      "commitment": "1000000",
+      "close_number": 1,
+      "total_allocation": "28067.27",
+      "allocation_by_close": {
+        "2": "28067.27"
+      }
+    },
+    {
+      "partner_name": "Partner 29",
+      "commitment": "1500000",
+      "close_number": 1,
+      "total_allocation": "42100.90",
+      "allocation_by_close": {
+        "2": "42100.90"
+      }
+    },
+    {
+      "partner_name": "Partner 30",
+      "commitment": "100000",
+      "close_number": 1,
+      "total_allocation": "2806.73",
+      "allocation_by_close": {
+        "2": "2806.73"
+      }
+    },
+    {
+      "partner_name": "Partner 31",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 32",
+      "commitment": "100000",
+      "close_number": 1,
+      "total_allocation": "2806.73",
+      "allocation_by_close": {
+        "2": "2806.73"
+      }
+    },
+    {
+      "partner_name": "Partner 33",
+      "commitment": "1000000",
+      "close_number": 1,
+      "total_allocation": "28067.27",
+      "allocation_by_close": {
+        "2": "28067.27"
+      }
+    },
+    {
+      "partner_name": "Partner 34",
+      "commitment": "1000000",
+      "close_number": 1,
+      "total_allocation": "28067.27",
+      "allocation_by_close": {
+        "2": "28067.27"
+      }
+    },
+    {
+      "partner_name": "Partner 35",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 36",
+      "commitment": "127205.38",
+      "close_number": 1,
+      "total_allocation": "3570.31",
+      "allocation_by_close": {
+        "2": "3570.31"
+      }
+    },
+    {
+      "partner_name": "Partner 37",
+      "commitment": "200000",
+      "close_number": 1,
+      "total_allocation": "5613.45",
+      "allocation_by_close": {
+        "2": "5613.45"
+      }
+    },
+    {
+      "partner_name": "Partner 38",
+      "commitment": "100000",
+      "close_number": 1,
+      "total_allocation": "2806.73",
+      "allocation_by_close": {
+        "2": "2806.73"
+      }
+    },
+    {
+      "partner_name": "Partner 39",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 40",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 41",
+      "commitment": "500000",
+      "close_number": 1,
+      "total_allocation": "14033.63",
+      "allocation_by_close": {
+        "2": "14033.63"
+      }
+    },
+    {
+      "partner_name": "Partner 42",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 43",
+      "commitment": "200000",
+      "close_number": 1,
+      "total_allocation": "5613.45",
+      "allocation_by_close": {
+        "2": "5613.45"
+      }
+    },
+    {
+      "partner_name": "Partner 44",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 45",
+      "commitment": "500000",
+      "close_number": 1,
+      "total_allocation": "14033.63",
+      "allocation_by_close": {
+        "2": "14033.63"
+      }
+    },
+    {
+      "partner_name": "Partner 47",
+      "commitment": "1500000",
+      "close_number": 1,
+      "total_allocation": "42100.90",
+      "allocation_by_close": {
+        "2": "42100.90"
+      }
+    },
+    {
+      "partner_name": "Partner 48",
+      "commitment": "29773.42",
+      "close_number": 1,
+      "total_allocation": "835.66",
+      "allocation_by_close": {
+        "2": "835.66"
+      }
+    },
+    {
+      "partner_name": "Partner 49",
+      "commitment": "22794.62",
+      "close_number": 1,
+      "total_allocation": "639.78",
+      "allocation_by_close": {
+        "2": "639.78"
+      }
+    },
+    {
+      "partner_name": "Partner 50",
+      "commitment": "150000",
+      "close_number": 1,
+      "total_allocation": "4210.09",
+      "allocation_by_close": {
+        "2": "4210.09"
+      }
+    },
+    {
+      "partner_name": "Partner 51",
+      "commitment": "150000",
+      "close_number": 1,
+      "total_allocation": "4210.09",
+      "allocation_by_close": {
+        "2": "4210.09"
+      }
+    },
+    {
+      "partner_name": "Partner 52",
+      "commitment": "100000",
+      "close_number": 1,
+      "total_allocation": "2806.73",
+      "allocation_by_close": {
+        "2": "2806.73"
+      }
+    },
+    {
+      "partner_name": "Partner 53",
+      "commitment": "500000",
+      "close_number": 1,
+      "total_allocation": "14033.63",
+      "allocation_by_close": {
+        "2": "14033.63"
+      }
+    },
+    {
+      "partner_name": "Partner 54",
+      "commitment": "250000",
+      "close_number": 1,
+      "total_allocation": "7016.82",
+      "allocation_by_close": {
+        "2": "7016.82"
+      }
+    },
+    {
+      "partner_name": "Partner 55",
+      "commitment": "1000000",
+      "close_number": 1,
+      "total_allocation": "28067.27",
+      "allocation_by_close": {
+        "2": "28067.27"
+      }
+    }
+  ],
+  "summary_by_close": [
+    {
+      "close_number": 2,
+      "new_lps_count": 1,
+      "existing_lps_count": 52,
+      "total_collected": "667158.91",
+      "total_allocated": "667159.00",
+      "difference": "-0.09"
+    }
+  ],
+  "settings": {
+    "late_interest_base": "prime",
+    "late_spread": "2.0",
+    "compounding": "simple",
+    "end_date_calculation": "issue_date",
+    "calc_rounding": 2,
+    "sum_rounding": 2,
+    "prime_rate": "7.0"
+  }
+}
