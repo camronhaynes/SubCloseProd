@@ -4,8 +4,8 @@ import { useState } from 'react'
 import {
   LateInterestEngine,
   FundAssumptions,
-  Partner,
-  CapitalCall,
+  Partner as EnginePartner,
+  CapitalCall as EngineCapitalCall,
   InterestCompounding,
   InterestBase,
   EndDateCalculation,
@@ -44,6 +44,7 @@ export default function Home() {
   const [result, setResult] = useState<CalculationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedNewLps, setExpandedNewLps] = useState<Set<number>>(new Set())
+  const [expandedMgmtFeeAudits, setExpandedMgmtFeeAudits] = useState<Set<number>>(new Set())
 
   // Settings state
   const [fundName, setFundName] = useState('Fund')
@@ -78,6 +79,16 @@ export default function Home() {
       newExpanded.add(idx)
     }
     setExpandedNewLps(newExpanded)
+  }
+
+  const toggleMgmtFeeAudit = (idx: number) => {
+    const newExpanded = new Set(expandedMgmtFeeAudits)
+    if (newExpanded.has(idx)) {
+      newExpanded.delete(idx)
+    } else {
+      newExpanded.add(idx)
+    }
+    setExpandedMgmtFeeAudits(newExpanded)
   }
 
   const fillSampleData = () => {
@@ -259,7 +270,7 @@ export default function Home() {
       }
 
       // Parse partners
-      const parsedPartners: Partner[] = validPartners.map(p => ({
+      const parsedPartners: EnginePartner[] = validPartners.map(p => ({
         name: p.name,
         issueDate: parseFlexibleDate(p.issue_date),
         commitment: parseNaturalCurrency(p.commitment),
@@ -267,7 +278,7 @@ export default function Home() {
       }))
 
       // Parse capital calls
-      const parsedCalls: CapitalCall[] = validCalls.map((c, idx) => ({
+      const parsedCalls: EngineCapitalCall[] = validCalls.map((c, idx) => ({
         callNumber: idx + 1,
         dueDate: parseFlexibleDate(c.date),
         callPercentage: parseFloat(c.percentage)
@@ -758,12 +769,14 @@ export default function Home() {
                           {result && formatCurrency(result.total_late_interest_allocated)}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-600 mb-1">Mgmt Fee Allocation</p>
-                        <p className="text-lg font-bold text-green-600">
-                          {result && formatCurrency(result.total_mgmt_fee_allocation)}
-                        </p>
-                      </div>
+                      {mgmtFeeEnabled && (
+                        <div>
+                          <p className="text-xs text-gray-600 mb-1">Mgmt Fee Allocation</p>
+                          <p className="text-lg font-bold text-green-600">
+                            {result && formatCurrency(result.total_mgmt_fee_allocation)}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -786,7 +799,9 @@ export default function Home() {
                               <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Total Catch-Up</th>
                               <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Total Late Interest</th>
                               <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-blue-50">LP Allocation</th>
-                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-green-50">Mgmt Fee</th>
+                              {mgmtFeeEnabled && (
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-green-50">Mgmt Fee</th>
+                              )}
                             </tr>
                           </thead>
                           <tbody>
@@ -816,13 +831,26 @@ export default function Home() {
                                     <td className="px-4 py-3 text-sm font-semibold text-blue-700 text-right bg-blue-50">
                                       {formatCurrency(lp.lp_allocation)}
                                     </td>
-                                    <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right bg-green-50">
-                                      {formatCurrency(lp.mgmt_fee_allocation)}
-                                    </td>
+                                    {mgmtFeeEnabled && (
+                                      <td className="px-4 py-3 text-sm font-semibold text-green-700 text-right bg-green-50">
+                                        <div className="flex items-center justify-end gap-2">
+                                          {formatCurrency(lp.mgmt_fee_allocation)}
+                                          {lp.mgmt_fee_audit && parseFloat(lp.mgmt_fee_allocation) > 0 && (
+                                            <button
+                                              onClick={() => toggleMgmtFeeAudit(idx)}
+                                              className="text-xs text-green-600 hover:text-green-800 underline"
+                                              title="View management fee calculation"
+                                            >
+                                              {expandedMgmtFeeAudits.has(idx) ? '▼' : '▶'} audit
+                                            </button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    )}
                                   </tr>
                                   {isExpanded && (
                                     <tr key={`${idx}-detail`} className="bg-gray-50">
-                                      <td colSpan={9} className="px-4 py-4">
+                                      <td colSpan={mgmtFeeEnabled ? 9 : 8} className="px-4 py-4">
                                         <div className="bg-white border border-gray-300 rounded-lg p-4">
                                           <h4 className="text-sm font-semibold text-gray-900 mb-3">
                                             Calculation Breakdown for {lp.partner_name}
@@ -874,6 +902,71 @@ export default function Home() {
                                       </td>
                                     </tr>
                                   )}
+                                  {expandedMgmtFeeAudits.has(idx) && lp.mgmt_fee_audit && mgmtFeeEnabled && (
+                                    <tr key={`${idx}-mgmt-audit`} className="bg-green-50">
+                                      <td colSpan={9} className="px-4 py-4">
+                                        <div className="bg-white border border-green-300 rounded-lg p-4">
+                                          <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                                            Management Fee Allocation Audit for {lp.partner_name}
+                                          </h4>
+                                          <div className="space-y-3">
+                                            <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                                              <p className="text-xs font-mono text-gray-800">
+                                                <strong>Excel Formula:</strong> {lp.mgmt_fee_audit.excel_formula}
+                                              </p>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                              <div className="bg-gray-50 p-3 rounded">
+                                                <p className="text-xs text-gray-600 mb-1">Management Fee Start Date</p>
+                                                <p className="text-sm font-semibold">{lp.mgmt_fee_audit.mgmt_fee_start_date || 'N/A'}</p>
+                                              </div>
+                                              <div className="bg-gray-50 p-3 rounded">
+                                                <p className="text-xs text-gray-600 mb-1">LP Issue Date</p>
+                                                <p className="text-sm font-semibold">{lp.mgmt_fee_audit.issue_date}</p>
+                                              </div>
+                                              <div className="bg-gray-50 p-3 rounded">
+                                                <p className="text-xs text-gray-600 mb-1">Days in Period (inclusive)</p>
+                                                <p className="text-sm font-semibold">{lp.mgmt_fee_audit.days_in_period} days</p>
+                                              </div>
+                                              <div className="bg-gray-50 p-3 rounded">
+                                                <p className="text-xs text-gray-600 mb-1">Annual Management Fee Rate</p>
+                                                <p className="text-sm font-semibold">{lp.mgmt_fee_audit.annual_rate}%</p>
+                                              </div>
+                                              <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                                                <p className="text-xs text-gray-600 mb-1">Catch-Up Capital (D5 in Excel)</p>
+                                                <p className="text-sm font-semibold">{formatCurrency(lp.mgmt_fee_audit.catch_up_capital)}</p>
+                                              </div>
+                                              <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                                                <p className="text-xs text-gray-600 mb-1">LP Commitment (G5 in Excel)</p>
+                                                <p className="text-sm font-semibold">{formatCurrency(lp.mgmt_fee_audit.commitment)}</p>
+                                              </div>
+                                              <div className="bg-orange-50 p-3 rounded border border-orange-200">
+                                                <p className="text-xs text-gray-600 mb-1">Total Late Interest (SUM(J5:AC5)-G5)</p>
+                                                <p className="text-sm font-semibold">{formatCurrency(lp.mgmt_fee_audit.total_late_interest)}</p>
+                                              </div>
+                                              <div className="bg-purple-50 p-3 rounded border border-purple-200">
+                                                <p className="text-xs text-gray-600 mb-1">Catch-Up Ratio</p>
+                                                <p className="text-sm font-semibold">{parseFloat(lp.mgmt_fee_audit.catch_up_ratio).toFixed(6)}</p>
+                                                <p className="text-xs text-gray-500">{formatCurrency(lp.mgmt_fee_audit.catch_up_capital)} / {formatCurrency(lp.mgmt_fee_audit.commitment)}</p>
+                                              </div>
+                                            </div>
+                                            <div className="bg-green-100 border border-green-300 rounded p-4">
+                                              <p className="text-xs text-gray-600 mb-2">Calculation Breakdown:</p>
+                                              <p className="text-sm font-mono text-gray-800 mb-2">
+                                                Time-Weighted Rate = ({lp.mgmt_fee_audit.days_in_period}/365) × {lp.mgmt_fee_audit.annual_rate}% = {parseFloat(lp.mgmt_fee_audit.time_weighted_rate).toFixed(8)}
+                                              </p>
+                                              <p className="text-sm font-mono text-gray-800 mb-2">
+                                                {lp.mgmt_fee_audit.formula}
+                                              </p>
+                                              <p className="text-sm font-bold text-green-800">
+                                                Management Fee = {formatCurrency(lp.mgmt_fee_audit.calculated_fee)}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
                                 </>
                               )
                             })}
@@ -890,9 +983,11 @@ export default function Home() {
                               <td className="px-4 py-3 text-sm text-blue-700 text-right font-bold bg-blue-50">
                                 {formatCurrency(result.total_late_interest_allocated)}
                               </td>
-                              <td className="px-4 py-3 text-sm text-green-700 text-right font-bold bg-green-50">
-                                {formatCurrency(result.total_mgmt_fee_allocation)}
-                              </td>
+                              {mgmtFeeEnabled && (
+                                <td className="px-4 py-3 text-sm text-green-700 text-right font-bold bg-green-50">
+                                  {formatCurrency(result.total_mgmt_fee_allocation)}
+                                </td>
+                              )}
                             </tr>
                           </tfoot>
                         </table>

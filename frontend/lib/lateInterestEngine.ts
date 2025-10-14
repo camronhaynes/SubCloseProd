@@ -66,6 +66,21 @@ export interface LateInterestDetail {
   effectiveRate: number
 }
 
+export interface MgmtFeeAudit {
+  mgmtFeeStartDate: Date | undefined
+  issueDate: Date
+  daysInPeriod: number
+  annualRate: number
+  catchUpCapital: number
+  totalLateInterest: number
+  commitment: number
+  timeWeightedRate: number
+  catchUpRatio: number
+  calculatedFee: number
+  formula: string
+  excelFormula: string
+}
+
 export interface NewLPCalculation {
   partnerName: string
   issueDate: Date
@@ -76,6 +91,7 @@ export interface NewLPCalculation {
   mgmtFeeAllocation: number
   lpAllocation: number
   breakdownByCapitalCall: LateInterestDetail[]
+  mgmtFeeAudit?: MgmtFeeAudit
 }
 
 export interface ExistingLPAllocation {
@@ -358,21 +374,56 @@ class LateInterestCalculator {
     totalCatchUp = roundAmount(totalCatchUp, this.assumptions.sumRounding)
     totalLateInterest = roundAmount(totalLateInterest, this.assumptions.sumRounding)
 
-    // Calculate management fee allocation
+    // Calculate management fee allocation using Excel formula
     let mgmtFeeAllocation = 0
+    let mgmtFeeAudit: MgmtFeeAudit | undefined = undefined
+
     if (
       this.assumptions.mgmtFeeAllocatedInterest &&
       this.assumptions.mgmtFeeRate &&
       this.assumptions.mgmtFeeStartDate &&
       totalCatchUp > 0
     ) {
-      // Calculate days from mgmt fee start date to LP issue date
+      // Calculate days from mgmt fee start date to LP issue date (+1 for inclusive)
       const daysForFee = daysBetween(this.assumptions.mgmtFeeStartDate, newLp.issueDate) + 1
 
       if (daysForFee > 0) {
-        // Mgmt fee = catchUpAmount * (mgmtFeeRate / 100) * (days / 365)
-        mgmtFeeAllocation = totalCatchUp * (this.assumptions.mgmtFeeRate / 100) * (daysForFee / 365)
+        // Excel Formula: =IFERROR(ROUND(IF(C9="Yes",
+        //   (($A5-$C$10+1)/365*$C$11) / ((SUM(J5:AC5)-G5)/D5) * G5,
+        //   0), $C$15), 0)
+        //
+        // Where:
+        // $A5 = issueDate
+        // $C$10 = mgmtFeeStartDate
+        // $C$11 = annualMgmtFeeRate
+        // SUM(J5:AC5) = totalCatchUp + totalLateInterest
+        // G5 = totalLateInterest
+        // D5 = commitment
+        // $C$15 = calcRounding
+
+        const timeWeightedRate = (daysForFee / 365) * (this.assumptions.mgmtFeeRate / 100)
+        const catchUpCapital = totalCatchUp // The capital portion (without interest)
+        const catchUpRatio = catchUpCapital / newLp.commitment
+
+        // Final formula: (timeWeightedRate / catchUpRatio) * totalLateInterest
+        mgmtFeeAllocation = (timeWeightedRate / catchUpRatio) * totalLateInterest
         mgmtFeeAllocation = roundAmount(mgmtFeeAllocation, this.assumptions.calcRounding)
+
+        // Create audit trail
+        mgmtFeeAudit = {
+          mgmtFeeStartDate: this.assumptions.mgmtFeeStartDate,
+          issueDate: newLp.issueDate,
+          daysInPeriod: daysForFee,
+          annualRate: this.assumptions.mgmtFeeRate,
+          catchUpCapital,
+          totalLateInterest,
+          commitment: newLp.commitment,
+          timeWeightedRate,
+          catchUpRatio,
+          calculatedFee: mgmtFeeAllocation,
+          formula: `((${daysForFee}/365 × ${this.assumptions.mgmtFeeRate}%) / (${catchUpCapital.toFixed(2)}/${newLp.commitment.toFixed(2)})) × ${totalLateInterest.toFixed(2)}`,
+          excelFormula: `=ROUND((($A5-$C$10+1)/365*$C$11)/((SUM(J5:AC5)-G5)/D5)*G5, $C$15)`
+        }
       }
     }
 
@@ -389,6 +440,7 @@ class LateInterestCalculator {
       mgmtFeeAllocation,
       lpAllocation,
       breakdownByCapitalCall: breakdown,
+      mgmtFeeAudit,
     }
   }
 
@@ -643,6 +695,20 @@ export class LateInterestEngine {
             days_late: d.daysLate,
             effective_rate: d.effectiveRate.toString(),
           })),
+          mgmt_fee_audit: calc.mgmtFeeAudit ? {
+            mgmt_fee_start_date: calc.mgmtFeeAudit.mgmtFeeStartDate?.toISOString().split('T')[0],
+            issue_date: calc.mgmtFeeAudit.issueDate.toISOString().split('T')[0],
+            days_in_period: calc.mgmtFeeAudit.daysInPeriod,
+            annual_rate: calc.mgmtFeeAudit.annualRate.toString(),
+            catch_up_capital: calc.mgmtFeeAudit.catchUpCapital.toString(),
+            total_late_interest: calc.mgmtFeeAudit.totalLateInterest.toString(),
+            commitment: calc.mgmtFeeAudit.commitment.toString(),
+            time_weighted_rate: calc.mgmtFeeAudit.timeWeightedRate.toString(),
+            catch_up_ratio: calc.mgmtFeeAudit.catchUpRatio.toString(),
+            calculated_fee: calc.mgmtFeeAudit.calculatedFee.toString(),
+            formula: calc.mgmtFeeAudit.formula,
+            excel_formula: calc.mgmtFeeAudit.excelFormula,
+          } : undefined,
         })
       }
 
