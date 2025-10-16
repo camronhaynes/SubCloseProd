@@ -37,8 +37,30 @@ interface CapitalCall {
   percentage: string
 }
 
+interface CarryPartner {
+  name: string
+  commitment: string
+  netDistributions: string
+  partnerClass: 'LP' | 'GP'
+  customCarryRate?: string
+}
+
+interface CarryResult {
+  partner_name: string
+  commitment: number
+  net_distributions: number
+  roc: number
+  profits: number
+  carry_rate: number
+  lp_carry_paid: number
+  total_distribution: number
+  partner_class: 'LP' | 'GP'
+  pro_rata_percentage: number
+}
+
 export default function Home() {
   const [isOpen, setIsOpen] = useState(true)
+  const [activeTab, setActiveTab] = useState<'subclose' | 'carry'>('subclose')
   const [step, setStep] = useState<'settings' | 'results'>('settings')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<CalculationResult | null>(null)
@@ -46,6 +68,18 @@ export default function Home() {
   const [expandedNewLps, setExpandedNewLps] = useState<Set<number>>(new Set())
   const [expandedExistingLps, setExpandedExistingLps] = useState<Set<number>>(new Set())
   const [expandedMgmtFeeAudits, setExpandedMgmtFeeAudits] = useState<Set<number>>(new Set())
+
+  // Carry distribution state
+  const [carryStep, setCarryStep] = useState<'settings' | 'results'>('settings')
+  const [carryLoading, setCarryLoading] = useState(false)
+  const [carryResult, setCarryResult] = useState<CarryResult[] | null>(null)
+  const [carryError, setCarryError] = useState<string | null>(null)
+  const [expandedCarryAudits, setExpandedCarryAudits] = useState<Set<number>>(new Set())
+  const [carryRate, setCarryRate] = useState('20.0')
+  const [customCarryEnabled, setCustomCarryEnabled] = useState(false)
+  const [carryPartners, setCarryPartners] = useState<CarryPartner[]>([
+    { name: '', commitment: '', netDistributions: '', partnerClass: 'LP' }
+  ])
 
   // Settings state
   const [fundName, setFundName] = useState('Fund')
@@ -100,6 +134,107 @@ export default function Home() {
       newExpanded.add(idx)
     }
     setExpandedMgmtFeeAudits(newExpanded)
+  }
+
+  const toggleCarryAudit = (idx: number) => {
+    const newExpanded = new Set(expandedCarryAudits)
+    if (newExpanded.has(idx)) {
+      newExpanded.delete(idx)
+    } else {
+      newExpanded.add(idx)
+    }
+    setExpandedCarryAudits(newExpanded)
+  }
+
+  const addCarryPartner = () => {
+    setCarryPartners([...carryPartners, { name: '', commitment: '', netDistributions: '', partnerClass: 'LP' }])
+  }
+
+  const removeCarryPartner = (index: number) => {
+    setCarryPartners(carryPartners.filter((_, i) => i !== index))
+  }
+
+  const updateCarryPartner = (index: number, field: keyof CarryPartner, value: string | 'LP' | 'GP') => {
+    const updated = [...carryPartners]
+    updated[index][field] = value as any
+    setCarryPartners(updated)
+  }
+
+  const fillCarrySampleData = () => {
+    setCarryPartners([
+      { name: 'Partner 1', commitment: '25000', netDistributions: '61750.56', partnerClass: 'LP' },
+      { name: 'Partner 2', commitment: '25000', netDistributions: '61750.56', partnerClass: 'LP' },
+      { name: 'Partner 3', commitment: '50000', netDistributions: '123501.13', partnerClass: 'LP' },
+      { name: 'Partner 4', commitment: '10000', netDistributions: '24700.23', partnerClass: 'LP' },
+      { name: 'Partner 5', commitment: '50000', netDistributions: '123501.13', partnerClass: 'LP' },
+      { name: 'Partner 6', commitment: '150000', netDistributions: '370503.38', partnerClass: 'LP' },
+      { name: 'Partner 7', commitment: '100000', netDistributions: '247002.25', partnerClass: 'LP' },
+      { name: 'General Partner LLC', commitment: '114000', netDistributions: '281582.57', partnerClass: 'GP' },
+    ])
+  }
+
+  const handleCarryCalculation = () => {
+    setCarryLoading(true)
+    setCarryError(null)
+
+    try {
+      const validPartners = carryPartners.filter(p => p.name && p.commitment && p.netDistributions)
+
+      if (validPartners.length === 0) {
+        throw new Error('Please add at least one partner')
+      }
+
+      const results: CarryResult[] = validPartners.map(partner => {
+        const commitment = parseNaturalCurrency(partner.commitment)
+        const netDistributions = parseNaturalCurrency(partner.netDistributions)
+        const roc = commitment
+        const profits = Math.max(0, netDistributions - commitment)
+
+        // Get carry rate - use custom if available, otherwise use global
+        const effectiveCarryRate = customCarryEnabled && partner.customCarryRate
+          ? parseFloat(partner.customCarryRate)
+          : parseFloat(carryRate)
+
+        const lpCarryPaid = partner.partnerClass === 'LP' ? (profits * effectiveCarryRate) / 100 : 0
+        const totalDistribution = partner.partnerClass === 'LP'
+          ? netDistributions - lpCarryPaid
+          : netDistributions
+
+        return {
+          partner_name: partner.name,
+          commitment,
+          net_distributions: netDistributions,
+          roc,
+          profits,
+          carry_rate: effectiveCarryRate,
+          lp_carry_paid: lpCarryPaid,
+          total_distribution: totalDistribution,
+          partner_class: partner.partnerClass,
+          pro_rata_percentage: 0 // Will calculate after
+        }
+      })
+
+      // Calculate pro-rata percentages
+      const totalCommitment = results.reduce((sum, r) => sum + r.commitment, 0)
+      results.forEach(r => {
+        r.pro_rata_percentage = (r.commitment / totalCommitment) * 100
+      })
+
+      // Add GP carry
+      const totalLpCarryPaid = results.reduce((sum, r) => sum + r.lp_carry_paid, 0)
+      results.forEach(r => {
+        if (r.partner_class === 'GP') {
+          r.total_distribution = r.net_distributions + totalLpCarryPaid
+        }
+      })
+
+      setCarryResult(results)
+      setCarryStep('results')
+    } catch (err: any) {
+      setCarryError(err.message || 'Calculation failed')
+    } finally {
+      setCarryLoading(false)
+    }
   }
 
   const fillSampleData = () => {
@@ -388,6 +523,35 @@ export default function Home() {
               </button>
             </div>
 
+            {/* Tab Navigation */}
+            <div className="border-b bg-gray-50 px-6">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setActiveTab('subclose')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'subclose'
+                      ? 'border-blue-600 text-blue-600 bg-white'
+                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 bg-blue-600 rounded-sm"></span>
+                    Sub Close
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('carry')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'carry'
+                      ? 'border-blue-600 text-blue-600 bg-white'
+                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  }`}
+                >
+                  Carry Distribution
+                </button>
+              </div>
+            </div>
+
             {/* Error Display */}
             {error && (
               <div className="mx-6 mt-4 bg-red-50 border border-red-200 rounded-md p-3">
@@ -397,7 +561,8 @@ export default function Home() {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
-              {step === 'settings' ? (
+              {activeTab === 'subclose' ? (
+                step === 'settings' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
                   {/* Left Sidebar - Assumptions */}
                   <div className="lg:col-span-1">
@@ -1209,6 +1374,367 @@ export default function Home() {
                     </div>
                   )}
                 </div>
+              )
+              ) : (
+                /* Carry Distribution View */
+                carryStep === 'settings' ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+                    {/* Left Sidebar - Carry Assumptions */}
+                    <div className="lg:col-span-1">
+                      <div className="bg-white border border-gray-200 rounded-lg p-6 sticky top-0">
+                        <h2 className="text-lg font-bold text-gray-900 mb-4 pb-3 border-b">Carry Settings</h2>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Carry Rate (%)</label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={carryRate}
+                              onChange={(e) => setCarryRate(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-purple-50"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Percentage of profits allocated to GP</p>
+                          </div>
+
+                          <div>
+                            <label className="flex items-center space-x-2 mb-2">
+                              <input
+                                type="checkbox"
+                                checked={customCarryEnabled}
+                                onChange={(e) => setCustomCarryEnabled(e.target.checked)}
+                                className="rounded border-gray-300"
+                              />
+                              <span className="text-xs font-medium text-gray-700">Custom Carry per LP?</span>
+                            </label>
+                            {customCarryEnabled && (
+                              <p className="text-xs text-gray-500 mt-1 ml-6">
+                                Enable custom carry rates for individual LPs below
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Column - Partners Input */}
+                    <div className="lg:col-span-2 space-y-6">
+                      <div className="bg-white border border-gray-200 rounded-lg p-6">
+                        <div className="flex justify-between items-center mb-4">
+                          <h2 className="text-lg font-bold text-gray-900">Partners</h2>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={fillCarrySampleData}
+                              className="text-purple-600 hover:text-purple-800 text-xs font-medium underline"
+                            >
+                              Fill with sample data
+                            </button>
+                            <button
+                              onClick={addCarryPartner}
+                              className="px-4 py-2 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
+                            >
+                              + Add Partner
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="bg-purple-50 border border-purple-200 rounded p-3 mb-4">
+                          <p className="text-xs text-purple-800">
+                            <strong>Partner Class:</strong> LP = Limited Partner (pays carry), GP = General Partner (receives carry)<br />
+                            <strong>Net Distributions:</strong> Total distributions to partner (including profits)<br />
+                            <strong>Custom Carry:</strong> Optional - override global carry rate for specific LPs
+                          </p>
+                        </div>
+
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                          {carryPartners.map((partner, idx) => {
+                            const isGP = partner.partnerClass === 'GP'
+                            const bgColor = isGP ? 'bg-green-50' : 'bg-purple-50'
+                            return (
+                              <div key={idx} className={`border-b pb-3 p-2 rounded ${bgColor}`}>
+                                <div className="flex gap-3 items-start mb-2">
+                                  <div className="flex-1">
+                                    <label className="block text-xs text-gray-600 mb-1">Partner Name</label>
+                                    <input
+                                      type="text"
+                                      placeholder="ABC Partners"
+                                      value={partner.name}
+                                      onChange={(e) => updateCarryPartner(idx, 'name', e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <label className="block text-xs text-gray-600 mb-1">Commitment</label>
+                                    <input
+                                      type="text"
+                                      placeholder="100000"
+                                      value={partner.commitment}
+                                      onChange={(e) => updateCarryPartner(idx, 'commitment', e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <label className="block text-xs text-gray-600 mb-1">Net Distributions</label>
+                                    <input
+                                      type="text"
+                                      placeholder="250000"
+                                      value={partner.netDistributions}
+                                      onChange={(e) => updateCarryPartner(idx, 'netDistributions', e.target.value)}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                    />
+                                  </div>
+                                  <div className="w-24">
+                                    <label className="block text-xs text-gray-600 mb-1">Class</label>
+                                    <select
+                                      value={partner.partnerClass}
+                                      onChange={(e) => updateCarryPartner(idx, 'partnerClass', e.target.value as 'LP' | 'GP')}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                    >
+                                      <option value="LP">LP</option>
+                                      <option value="GP">GP</option>
+                                    </select>
+                                  </div>
+                                  {carryPartners.length > 1 && (
+                                    <button
+                                      onClick={() => removeCarryPartner(idx)}
+                                      className="mt-6 px-3 py-2 text-red-600 hover:bg-red-50 rounded text-sm"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </div>
+                                {customCarryEnabled && partner.partnerClass === 'LP' && (
+                                  <div className="ml-4 pl-4 border-l-2 border-purple-300 mt-2">
+                                    <label className="block text-xs text-gray-600 mb-1">Custom Carry Rate (%) - Optional</label>
+                                    <input
+                                      type="number"
+                                      step="0.1"
+                                      placeholder={`Default: ${carryRate}%`}
+                                      value={partner.customCarryRate || ''}
+                                      onChange={(e) => updateCarryPartner(idx, 'customCarryRate', e.target.value)}
+                                      className="w-48 px-3 py-2 border border-gray-300 rounded text-sm bg-purple-100"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Calculate Button */}
+                      <button
+                        onClick={handleCarryCalculation}
+                        disabled={carryLoading}
+                        className="w-full bg-purple-600 text-white py-4 px-6 rounded-md font-semibold text-lg hover:bg-purple-700 disabled:bg-gray-400 transition-colors"
+                      >
+                        {carryLoading ? 'Calculating...' : 'Calculate Carry Distribution'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Carry Results View */
+                  <div className="p-6">
+                    <div className="bg-white border border-gray-200 rounded-lg p-6 mb-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-semibold text-gray-900">Carry Distribution Results</h3>
+                        <button
+                          onClick={() => setCarryStep('settings')}
+                          className="px-4 py-2 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
+                        >
+                          ← Back to Settings
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Carry Distribution Table */}
+                    {carryResult && carryResult.length > 0 && (
+                      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="px-6 py-4 bg-purple-50 border-b">
+                          <h3 className="font-semibold text-gray-900">Carry Allocation</h3>
+                          <p className="text-xs text-gray-600 mt-1">Carried interest distribution across all partners</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full">
+                            <thead className="bg-gray-50 border-b">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 w-8"></th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Partner</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Class</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Commitment</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Pro-Rata %</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Net Dist</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-blue-50">ROC</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-green-50">Profits</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600">Carry %</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-orange-50">LP Carry Paid</th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 bg-purple-50">Total Dist</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {carryResult.map((partner, idx) => {
+                                const isExpanded = expandedCarryAudits.has(idx)
+                                const isGP = partner.partner_class === 'GP'
+                                return (
+                                  <>
+                                    <tr key={idx} className={`border-b hover:bg-gray-50 ${isGP ? 'bg-green-50/30' : ''}`}>
+                                      <td className="px-4 py-3 text-center">
+                                        <button
+                                          onClick={() => toggleCarryAudit(idx)}
+                                          className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                                        >
+                                          {isExpanded ? '▼' : '▶'}
+                                        </button>
+                                      </td>
+                                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                        {partner.partner_name}
+                                        {isGP && <span className="ml-2 text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">GP</span>}
+                                      </td>
+                                      <td className="px-4 py-3 text-xs text-gray-600 text-center">
+                                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${isGP ? 'bg-green-200 text-green-800' : 'bg-purple-200 text-purple-800'}`}>
+                                          {partner.partner_class}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-3 text-sm text-gray-700 text-right">{formatCurrency(partner.commitment.toString())}</td>
+                                      <td className="px-4 py-3 text-sm text-gray-600 text-right">{partner.pro_rata_percentage.toFixed(4)}%</td>
+                                      <td className="px-4 py-3 text-sm text-gray-700 text-right">{formatCurrency(partner.net_distributions.toString())}</td>
+                                      <td className="px-4 py-3 text-sm text-blue-700 text-right bg-blue-50">{formatCurrency(partner.roc.toString())}</td>
+                                      <td className="px-4 py-3 text-sm text-green-700 text-right font-medium bg-green-50">{formatCurrency(partner.profits.toString())}</td>
+                                      <td className="px-4 py-3 text-sm text-gray-600 text-right">{partner.carry_rate.toFixed(2)}%</td>
+                                      <td className="px-4 py-3 text-sm text-orange-600 text-right font-semibold bg-orange-50">
+                                        {partner.lp_carry_paid > 0 ? `-${formatCurrency(partner.lp_carry_paid.toString())}` : '-'}
+                                      </td>
+                                      <td className="px-4 py-3 text-sm font-bold text-purple-700 text-right bg-purple-50">
+                                        {formatCurrency(partner.total_distribution.toString())}
+                                      </td>
+                                    </tr>
+                                    {isExpanded && (
+                                      <tr key={`${idx}-detail`} className="bg-purple-50">
+                                        <td colSpan={11} className="px-4 py-4">
+                                          <div className="bg-white border border-purple-300 rounded-lg p-4">
+                                            <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                                              Carry Calculation Audit for {partner.partner_name}
+                                            </h4>
+                                            <div className="space-y-3">
+                                              <div className="grid grid-cols-3 gap-4">
+                                                <div className="bg-gray-50 p-3 rounded">
+                                                  <p className="text-xs text-gray-600 mb-1">Partner Class</p>
+                                                  <p className="text-sm font-semibold">{partner.partner_class === 'GP' ? 'General Partner' : 'Limited Partner'}</p>
+                                                </div>
+                                                <div className="bg-gray-50 p-3 rounded">
+                                                  <p className="text-xs text-gray-600 mb-1">Commitment</p>
+                                                  <p className="text-sm font-semibold">{formatCurrency(partner.commitment.toString())}</p>
+                                                </div>
+                                                <div className="bg-gray-50 p-3 rounded">
+                                                  <p className="text-xs text-gray-600 mb-1">Pro-Rata %</p>
+                                                  <p className="text-sm font-semibold">{partner.pro_rata_percentage.toFixed(6)}%</p>
+                                                </div>
+                                              </div>
+
+                                              <div className="bg-blue-100 border border-blue-300 rounded p-4">
+                                                <p className="text-xs text-gray-600 mb-2">Return of Capital (ROC):</p>
+                                                <p className="text-sm font-mono text-gray-800">
+                                                  ROC = Commitment = {formatCurrency(partner.roc.toString())}
+                                                </p>
+                                              </div>
+
+                                              <div className="bg-green-100 border border-green-300 rounded p-4">
+                                                <p className="text-xs text-gray-600 mb-2">Profits Subject to Carry:</p>
+                                                <p className="text-sm font-mono text-gray-800 mb-1">
+                                                  Profits = Net Distributions - ROC
+                                                </p>
+                                                <p className="text-sm font-mono text-gray-800 mb-1">
+                                                  Profits = {formatCurrency(partner.net_distributions.toString())} - {formatCurrency(partner.roc.toString())}
+                                                </p>
+                                                <p className="text-sm font-bold text-green-800">
+                                                  Profits = {formatCurrency(partner.profits.toString())}
+                                                </p>
+                                              </div>
+
+                                              {partner.partner_class === 'LP' ? (
+                                                <>
+                                                  <div className="bg-orange-100 border border-orange-300 rounded p-4">
+                                                    <p className="text-xs text-gray-600 mb-2">LP Carry Paid:</p>
+                                                    <p className="text-sm font-mono text-gray-800 mb-1">
+                                                      Carry Paid = Profits × Carry Rate
+                                                    </p>
+                                                    <p className="text-sm font-mono text-gray-800 mb-1">
+                                                      Carry Paid = {formatCurrency(partner.profits.toString())} × {partner.carry_rate.toFixed(2)}%
+                                                    </p>
+                                                    <p className="text-sm font-bold text-orange-800">
+                                                      Carry Paid = {formatCurrency(partner.lp_carry_paid.toString())}
+                                                    </p>
+                                                  </div>
+
+                                                  <div className="bg-purple-100 border border-purple-300 rounded p-4">
+                                                    <p className="text-xs text-gray-600 mb-2">Total Distribution to LP:</p>
+                                                    <p className="text-sm font-mono text-gray-800 mb-1">
+                                                      Total Dist = Net Distributions - Carry Paid
+                                                    </p>
+                                                    <p className="text-sm font-mono text-gray-800 mb-1">
+                                                      Total Dist = {formatCurrency(partner.net_distributions.toString())} - {formatCurrency(partner.lp_carry_paid.toString())}
+                                                    </p>
+                                                    <p className="text-sm font-bold text-purple-800">
+                                                      Total Dist = {formatCurrency(partner.total_distribution.toString())}
+                                                    </p>
+                                                  </div>
+                                                </>
+                                              ) : (
+                                                <div className="bg-green-100 border border-green-300 rounded p-4">
+                                                  <p className="text-xs text-gray-600 mb-2">GP Carry Received:</p>
+                                                  <p className="text-sm font-mono text-gray-800 mb-1">
+                                                    Total GP Carry = Sum of all LP Carry Paid = {formatCurrency(carryResult.reduce((sum, p) => sum + p.lp_carry_paid, 0).toString())}
+                                                  </p>
+                                                  <p className="text-sm font-mono text-gray-800 mb-1">
+                                                    Total Dist = Net Distributions + GP Carry
+                                                  </p>
+                                                  <p className="text-sm font-mono text-gray-800 mb-1">
+                                                    Total Dist = {formatCurrency(partner.net_distributions.toString())} + {formatCurrency((partner.total_distribution - partner.net_distributions).toString())}
+                                                  </p>
+                                                  <p className="text-sm font-bold text-green-800">
+                                                    Total Dist = {formatCurrency(partner.total_distribution.toString())}
+                                                  </p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </>
+                                )
+                              })}
+                            </tbody>
+                            <tfoot className="bg-gray-100 font-semibold">
+                              <tr>
+                                <td colSpan={3} className="px-4 py-3 text-sm text-gray-900 text-right">Totals:</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 text-right">
+                                  {formatCurrency(carryResult.reduce((sum, p) => sum + p.commitment, 0).toString())}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-900 text-right">100.0000%</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 text-right">
+                                  {formatCurrency(carryResult.reduce((sum, p) => sum + p.net_distributions, 0).toString())}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-900 text-right bg-blue-50">
+                                  {formatCurrency(carryResult.reduce((sum, p) => sum + p.roc, 0).toString())}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-900 text-right font-bold bg-green-50">
+                                  {formatCurrency(carryResult.reduce((sum, p) => sum + p.profits, 0).toString())}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-900 text-right">-</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 text-right font-bold bg-orange-50">
+                                  -{formatCurrency(carryResult.reduce((sum, p) => sum + p.lp_carry_paid, 0).toString())}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-900 text-right font-bold bg-purple-50">
+                                  {formatCurrency(carryResult.reduce((sum, p) => sum + p.total_distribution, 0).toString())}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
               )}
             </div>
 
