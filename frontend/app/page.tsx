@@ -44,6 +44,7 @@ export default function Home() {
   const [result, setResult] = useState<CalculationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expandedNewLps, setExpandedNewLps] = useState<Set<number>>(new Set())
+  const [expandedExistingLps, setExpandedExistingLps] = useState<Set<number>>(new Set())
   const [expandedMgmtFeeAudits, setExpandedMgmtFeeAudits] = useState<Set<number>>(new Set())
 
   // Settings state
@@ -79,6 +80,16 @@ export default function Home() {
       newExpanded.add(idx)
     }
     setExpandedNewLps(newExpanded)
+  }
+
+  const toggleExistingLpExpansion = (idx: number) => {
+    const newExpanded = new Set(expandedExistingLps)
+    if (newExpanded.has(idx)) {
+      newExpanded.delete(idx)
+    } else {
+      newExpanded.add(idx)
+    }
+    setExpandedExistingLps(newExpanded)
   }
 
   const toggleMgmtFeeAudit = (idx: number) => {
@@ -1006,6 +1017,7 @@ export default function Home() {
                         <table className="min-w-full">
                           <thead className="bg-gray-50 border-b">
                             <tr>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 w-8"></th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Partner</th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Commitment</th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Close</th>
@@ -1043,13 +1055,23 @@ export default function Home() {
                                 // Check if next row is same partner for visual grouping
                                 const nextLp = result.existing_lps[idx + 1]
                                 const hasNextSamePartner = nextLp && nextLp.partner_name === currentPartnerName
+                                const isExpanded = expandedExistingLps.has(idx)
 
                                 return (
-                                  <tr
-                                    key={idx}
-                                    className={`border-b hover:bg-gray-50 ${isRepeatedPartner ? 'bg-blue-50/30' : ''}`}
-                                  >
-                                    <td className={`px-4 py-3 text-sm font-medium text-gray-900 ${isRepeatedPartner ? 'pl-8 text-gray-600' : ''}`}>
+                                  <>
+                                    <tr
+                                      key={idx}
+                                      className={`border-b hover:bg-gray-50 ${isRepeatedPartner ? 'bg-blue-50/30' : ''}`}
+                                    >
+                                      <td className="px-4 py-3 text-center">
+                                        <button
+                                          onClick={() => toggleExistingLpExpansion(idx)}
+                                          className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                                        >
+                                          {isExpanded ? '▼' : '▶'}
+                                        </button>
+                                      </td>
+                                      <td className={`px-4 py-3 text-sm font-medium text-gray-900 ${isRepeatedPartner ? 'pl-8 text-gray-600' : ''}`}>
                                       {isRepeatedPartner ? (
                                         <span className="italic text-xs">↳ {lp.partner_name}</span>
                                       ) : (
@@ -1072,6 +1094,86 @@ export default function Home() {
                                       </td>
                                     ))}
                                   </tr>
+                                  {isExpanded && (
+                                    <tr key={`${idx}-detail`} className="bg-blue-50">
+                                      <td colSpan={6 + sortedCloses.length} className="px-4 py-4">
+                                        <div className="bg-white border border-blue-300 rounded-lg p-4">
+                                          <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                                            Pro-Rata Allocation Audit for {lp.partner_name}
+                                          </h4>
+                                          <div className="space-y-3">
+                                            <div className="grid grid-cols-2 gap-4">
+                                              <div className="bg-gray-50 p-3 rounded">
+                                                <p className="text-xs text-gray-600 mb-1">LP Commitment</p>
+                                                <p className="text-sm font-semibold">{formatCurrency(lp.commitment)}</p>
+                                              </div>
+                                              <div className="bg-gray-50 p-3 rounded">
+                                                <p className="text-xs text-gray-600 mb-1">Close Number</p>
+                                                <p className="text-sm font-semibold">Close {lp.close_number}</p>
+                                              </div>
+                                              <div className="bg-purple-50 p-3 rounded border border-purple-200">
+                                                <p className="text-xs text-gray-600 mb-1">Total Existing LP Commitments (Close {lp.close_number})</p>
+                                                <p className="text-sm font-semibold">{formatCurrency(totalCommitment.toString())}</p>
+                                              </div>
+                                              <div className="bg-purple-50 p-3 rounded border border-purple-200">
+                                                <p className="text-xs text-gray-600 mb-1">Pro-Rata Percentage</p>
+                                                <p className="text-sm font-semibold">{proRata.toFixed(6)}%</p>
+                                                <p className="text-xs text-gray-500">({formatCurrency(lp.commitment)} / {formatCurrency(totalCommitment.toString())})</p>
+                                              </div>
+                                            </div>
+
+                                            {sortedCloses.length > 0 && (
+                                              <div className="bg-blue-100 border border-blue-300 rounded p-4">
+                                                <p className="text-xs text-gray-600 mb-2">Allocation Breakdown by Paying Close:</p>
+                                                <div className="space-y-2">
+                                                  {sortedCloses.map(close => {
+                                                    const closeAllocation = lp.allocation_by_close?.[close]
+                                                    if (!closeAllocation) return null
+
+                                                    // Calculate the total interest collected from this paying close
+                                                    const closeTotal = result.existing_lps.reduce((sum: number, existingLp: any) => {
+                                                      return sum + (existingLp.allocation_by_close?.[close] ? parseFloat(existingLp.allocation_by_close[close]) : 0)
+                                                    }, 0)
+
+                                                    return (
+                                                      <div key={close} className="bg-white p-3 rounded border border-blue-200">
+                                                        <p className="text-sm font-mono text-gray-800 mb-1">
+                                                          <strong>From Close {close}:</strong>
+                                                        </p>
+                                                        <p className="text-xs text-gray-600 mb-1">
+                                                          Total Interest from Close {close} = {formatCurrency(closeTotal.toString())}
+                                                        </p>
+                                                        <p className="text-xs font-mono text-gray-700 mb-1">
+                                                          Allocation = {formatCurrency(closeTotal.toString())} × {proRata.toFixed(6)}%
+                                                        </p>
+                                                        <p className="text-sm font-bold text-blue-800">
+                                                          = {formatCurrency(closeAllocation)}
+                                                        </p>
+                                                      </div>
+                                                    )
+                                                  })}
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            <div className="bg-blue-100 border border-blue-300 rounded p-4">
+                                              <p className="text-xs text-gray-600 mb-2">Total Allocation Calculation:</p>
+                                              <p className="text-sm font-mono text-gray-800 mb-2">
+                                                Total = {sortedCloses.map(close => {
+                                                  const closeAllocation = lp.allocation_by_close?.[close]
+                                                  return closeAllocation ? formatCurrency(closeAllocation) : null
+                                                }).filter(Boolean).join(' + ')}
+                                              </p>
+                                              <p className="text-sm font-bold text-blue-800">
+                                                Total Allocation = {formatCurrency(lp.total_allocation)}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </>
                                 )
                               })
                             })()}
